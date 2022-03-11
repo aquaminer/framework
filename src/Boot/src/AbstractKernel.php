@@ -49,11 +49,19 @@ abstract class AbstractKernel implements KernelInterface
     /** @var array<Closure> */
     private $startedCallbacks = [];
 
+    /** @var bool */
+    protected $handleErrors;
+
     /**
      * @throws \Throwable
      */
-    public function __construct(Container $container, array $directories)
+    public function __construct(Container $container, array $directories, bool $handleErrors = true)
     {
+        if ($handleErrors) {
+            ExceptionHandler::register();
+        }
+        $this->handleErrors = $handleErrors;
+
         $this->container = $container;
 
         $this->container->bindSingleton(KernelInterface::class, $this);
@@ -113,11 +121,7 @@ abstract class AbstractKernel implements KernelInterface
         array $directories,
         bool $handleErrors = true
     ): self {
-        if ($handleErrors) {
-            ExceptionHandler::register();
-        }
-
-        return new static(new Container(), $directories);
+        return new static(new Container(), $directories, $handleErrors);
     }
 
     /**
@@ -146,9 +150,13 @@ abstract class AbstractKernel implements KernelInterface
                 }
             );
         } catch (\Throwable $e) {
-            ExceptionHandler::handleException($e);
+            if ($this->handleErrors) {
+                ExceptionHandler::handleException($e);
 
-            return null;
+                return null;
+            }
+
+            throw $e;
         }
 
         return $this;
